@@ -1,0 +1,12 @@
+*.env
+ven/
+try.py
+try2.py
+ui.py
+try_back.py
+output.html
+pdf/
+chroma_db_llamaparse1 copy 1
+
+*.pdf
+*.docx
