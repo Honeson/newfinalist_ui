@@ -170,12 +170,22 @@ if "chat_history" not in st.session_state:
 
 # Function to display chat messages
 def display_chat():
-    for i, (msg, is_user) in enumerate(st.session_state["chat_history"]):
-        align_class = "user" if is_user else "bot"
-        st.markdown(
-            f'<div class="chat-message {align_class}"><p>{msg}</p></div>',
-            unsafe_allow_html=True,
-        )
+    for msg, is_user in st.session_state["chat_history"]:
+        if is_user:
+            st.markdown(f'<div class="chat-message user"><p>👤 {msg}</p></div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div class="chat-message bot"><p>🤖 {msg["text"]}</p></div>', unsafe_allow_html=True)
+            
+            # Display source information
+            with st.expander("View Source Information"):
+                for source in msg["source_documents"]:
+                    st.markdown(f"""
+                    <div class="source-info">
+                        <p><strong>File:</strong> {source['filename']}</p>
+                        <p><strong>Page:</strong> {source['page_number']}</p>
+                        <p><strong>Content:</strong> {source['page_content']}</p>
+                    </div>
+                    """, unsafe_allow_html=True)
 
 # Dynamic text to reflect selected company
 st.markdown(
@@ -186,35 +196,44 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# Input form
-user_input = st.text_input("Ask a financial question:", "")
-
-ask1, ask2 = st.columns(2)
-
-with ask1:
-    if st.button("Analyze"):
-        if user_input:
-            st.session_state["chat_history"].append((user_input, True))
-            with st.spinner("Preparing Your Response..."):
-                response = requests.post(
-                    "https://newfinalist.onrender.com/ask",
-                    json={"question": user_input, "session_id": session_id, "company": company_key}
-                )
-                print(f"Frontend POST request with company: {company_key}")
-                if response.status_code == 200:
-                    answer = response.json()["answer"]["answer"]
-                    st.session_state["chat_history"].append((answer, False))
-                else:
-                    st.error("Something went wrong. Please try again.")
-        st.rerun()
 
 # Display chat messages
 display_chat()
+
+# Input form - always visible
+user_input = st.text_input("Ask a financial question:", key="user_input")
+
+if st.button("Analyze"):
+    if user_input:
+        st.session_state["chat_history"].append((user_input, True))
+        with st.spinner("Preparing Your Response..."):
+            response = requests.post(
+                "http://127.0.0.1:8000/ask",
+                json={"question": user_input, "session_id": session_id, "company": company_key}
+            )
+            print(f"Frontend POST request with company: {company_key}")
+            if response.status_code == 200:
+                answer_data = response.json()["answer"]
+                st.session_state["chat_history"].append((
+                    {
+                        "text": answer_data["answer"],
+                        "source_documents": answer_data["source_documents"]
+                    }, 
+                    False
+                ))
+            else:
+                st.error("Something went wrong. Please try again.")
+        
+        # Clear the input field after submitting
+        st.session_state.user_input
+        st.rerun()
+
 if user_input:
+    # Clear session button
     if st.button("Clear Session"):
-        requests.post("https://newfinalist.onrender.com/clear_session", json={"session_id": session_id})
+        requests.post("http://127.0.0.1:8000/clear_session", json={"session_id": session_id})
         st.session_state["chat_history"].clear()
-        st.write("Session cleared.")
+        st.rerun()
 
 st.write(' ')
 st.subheader("Key Financial Insights")
