@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import requests
 import uuid
 from datetime import datetime
@@ -7,6 +8,17 @@ import numpy as np
 import time
 # Page configuration
 st.set_page_config(page_title="Equitech Financial Analyst", page_icon="📊", layout="wide")
+
+chat_html = """
+<flowise-fullchatbot></flowise-fullchatbot>
+<script type="module">
+    import Chatbot from "https://cdn.jsdelivr.net/npm/flowise-embed/dist/web.js"
+    Chatbot.initFull({
+        chatflowid: "1a43e953-914a-4ff0-b471-62e9ed7a4ebf",
+        apiHost: "http://localhost:3000",
+    })
+</script>
+"""
 
 # Custom CSS to remove top padding/margin
 st.markdown(
@@ -391,20 +403,25 @@ def update_chart():
     return fig
 
 
-st.plotly_chart(update_chart(), use_container_width=True, key="animated_chart")
+k1, k2 = st.columns(2)
 
-# Footer
-st.markdown("---")
-st.write("🌐 Connected to: Equitech Ventures Financial Analysis Bot")
-st.markdown(
-    f'<span class="text-red">ℹ️ Pro Tips:</span>',
-    unsafe_allow_html=True
-    )
-st.write("- Select a Company from the sidebar to start a new analysis.")
-st.write("- Ask specific questions about financial metrics, trends, or comparisons.")
-#st.caption("Powered by Equitech Ventures | © 2024")
-st.markdown(
-    f'<span class="text-green-bold">Powered by Equitech Ventures | © 2024</span>',
-    unsafe_allow_html=True
-    )
+with k1:
+    st.plotly_chart(update_chart(), use_container_width=True, key="animated_chart")
 
+    # Footer
+    st.markdown("---")
+    st.write("🌐 Connected to: Equitech Ventures Financial Analysis Bot")
+    st.markdown(
+        f'<span class="text-red">ℹ️ Pro Tips:</span>',
+        unsafe_allow_html=True
+        )
+    st.write("- Select a Company from the sidebar to start a new analysis.")
+    st.write("- Ask specific questions about financial metrics, trends, or comparisons.")
+    #st.caption("Powered by Equitech Ventures | © 2024")
+    st.markdown(
+        f'<span class="text-green-bold">Powered by Equitech Ventures | © 2024</span>',
+        unsafe_allow_html=True
+        )
+    
+with k2:
+    components.html(chat_html, height=600, scrolling=True)
