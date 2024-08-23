@@ -210,7 +210,7 @@ st.markdown("""
 def get_financial_data(metric: str, company: str):
     try:
         response = requests.post(
-            "http://127.0.0.1:8000/get-financial-data",
+            "https://newfinalist.onrender.com/get-financial-data",
             json={"company": company, "metric": metric}
         )
         response.raise_for_status()
@@ -356,7 +356,7 @@ with me2:
             st.session_state["chat_history"].append((user_input, True))
             with st.spinner("Preparing Your Response..."):
                 response = requests.post(
-                    "http://127.0.0.1:8000/ask",
+                    "https://newfinalist.onrender.com/ask",
                     json={"question": user_input, "session_id": session_id, "company": company_key}
                 )
                 print(f"Frontend POST request with company: {company_key}")
@@ -379,7 +379,7 @@ with me2:
     if user_input:
         # Clear session button
         if st.button("Clear Session"):
-            requests.post("http://127.0.0.1:8000/clear_session", json={"session_id": session_id})
+            requests.post("https://newfinalist.onrender.com/clear_session", json={"session_id": session_id})
             st.session_state["chat_history"].clear()
             st.rerun()
 
