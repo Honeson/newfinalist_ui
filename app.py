@@ -8,7 +8,6 @@ import numpy as np
 import time
 # Page configuration
 st.set_page_config(page_title="Equitech Financial Analyst", page_icon="📊", layout="wide")
-
 chat_html = """
 <flowise-fullchatbot></flowise-fullchatbot>
 <script type="module">
@@ -19,6 +18,8 @@ chat_html = """
     })
 </script>
 """
+
+
 
 # Custom CSS to remove top padding/margin
 st.markdown(
@@ -121,6 +122,12 @@ st.markdown("""
         color: green; 
         font-size: 22px;
     }
+            
+     .custom-subheader {
+        text-align: right; 
+        color: green;    
+        margin-bottom: 10px;  
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -130,6 +137,9 @@ if 'chat_histories' not in st.session_state:
     st.session_state['chat_histories'] = [{'id': st.session_state['session_id'], 'history': [], 'timestamp': datetime.now()}]
 if 'current_document' not in st.session_state:
     st.session_state['current_document'] = None
+
+if 'clicked_metric' not in st.session_state:
+    st.session_state.clicked_metric = None
 
 # Header
 st.title("📊 Equitech Financial Analyst")
@@ -161,6 +171,7 @@ with st.sidebar:
     st.image(image_map.get(company_key, "static/default_hero.jpg"))
     #st.image("static/hero.jpg")
 
+
     st.subheader("Recent Analyses")
     for i, chat in enumerate(reversed(st.session_state['chat_histories'][-5:])):
         with st.expander(f"{chat['timestamp'].strftime('%Y-%m-%d %H:%M')} - {len(chat['history'])} queries"):
@@ -171,85 +182,7 @@ with st.sidebar:
 
 
 
-
-
-# Unique session ID for each user session
-session_id = str(uuid.uuid4())
-
-# Chat history placeholder
-if "chat_history" not in st.session_state:
-    st.session_state["chat_history"] = []
-
-# Function to display chat messages
-def display_chat():
-    for msg, is_user in st.session_state["chat_history"]:
-        if is_user:
-            st.markdown(f'<div class="chat-message user"><p>👤 {msg}</p></div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="chat-message bot"><p>🤖 {msg["text"]}</p></div>', unsafe_allow_html=True)
-            
-            # Display source information
-            with st.expander("View Source Information"):
-                for source in msg["source_documents"]:
-                    st.markdown(f"""
-                    <div class="source-info">
-                        <p><strong>File:</strong> {source['filename']}</p>
-                        <p><strong>Page:</strong> {source['page_number']}</p>
-                        <p><strong>Content:</strong> {source['page_content']}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-# Dynamic text to reflect selected company
-st.markdown(
-    f'<div class="top-right-text">'
-    f'<span class="text-green">Currently Analyzing: </span>'
-    f'<span class="text-red">{company_selection}</span>'
-    f'</div>',
-    unsafe_allow_html=True
-)
-
-
-# Display chat messages
-display_chat()
-
-# Input form - always visible
-user_input = st.text_input("Ask a financial question:", key="user_input")
-
-if st.button("Analyze"):
-    if user_input:
-        st.session_state["chat_history"].append((user_input, True))
-        with st.spinner("Preparing Your Response..."):
-            response = requests.post(
-                "https://newfinalist.onrender.com/ask",
-                json={"question": user_input, "session_id": session_id, "company": company_key}
-            )
-            print(f"Frontend POST request with company: {company_key}")
-            if response.status_code == 200:
-                answer_data = response.json()["answer"]
-                st.session_state["chat_history"].append((
-                    {
-                        "text": answer_data["answer"],
-                        "source_documents": answer_data["source_documents"]
-                    }, 
-                    False
-                ))
-            else:
-                st.error("Something went wrong. Please try again.")
-        
-        # Clear the input field after submitting
-        st.session_state.user_input
-        st.rerun()
-
-if user_input:
-    # Clear session button
-    if st.button("Clear Session"):
-        requests.post("https://newfinalist.onrender.com/ask", json={"session_id": session_id})
-        st.session_state["chat_history"].clear()
-        st.rerun()
-
-st.write(' ')
-st.subheader("Key Financial Insights")
-st.write(' ')
+st.markdown('<p class="custom-subheader">Key Financial Insights</p>', unsafe_allow_html=True)
 
 
 
@@ -273,142 +206,187 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Session state to track the clicked metric
-if 'clicked_metric' not in st.session_state:
-    st.session_state.clicked_metric = None
 
-# Create 8 buttons in a 2-row, 4-column layout
-col1, col2, col3, col4 = st.columns(4)
+def get_financial_data(metric: str, company: str):
+    try:
+        response = requests.post(
+            "http://127.0.0.1:8000/get-financial-data",
+            json={"company": company, "metric": metric}
+        )
+        response.raise_for_status()
+        return response.json()
+    except requests.RequestException as e:
+        st.error(f"Failed to fetch financial data: {str(e)}")
+        return None
 
-with col1:
-    if st.button("Revenue"):
-        st.session_state.clicked_metric = "revenue"
-    if st.button("ROE"):
-        st.session_state.clicked_metric = "roe"
-
-with col2:
-    if st.button("Net Income"):
-        st.session_state.clicked_metric = "net_income"
-    if st.button("Free Cash Flow"):
-        st.session_state.clicked_metric = "free_cash_flow"
-
-with col3:
-    if st.button("EPS"):
-        st.session_state.clicked_metric = "eps"
-    if st.button("Debt to Equity"):
-        st.session_state.clicked_metric = "debt_to_equity"
-
-with col4:
-    if st.button("Operating Margin"):
-        st.session_state.clicked_metric = "operating_margin"
-    if st.button("P/E Ratio"):
-        st.session_state.clicked_metric = "pe_ratio"
-
-# Get the clicked metric
-metric_value = st.session_state.clicked_metric
-
-# Display metrics in a 3-column layout
-one, two, three = st.columns(3)
-
-# First Column Metrics
-with one:
-    if metric_value == "revenue":
-        st.metric("", "$16.68B", "+41%")
-    elif metric_value == "net_income":
-        st.metric("", "$4.02B", "+768%")
-    elif metric_value == "eps":
-        st.metric("", "$1.62", "+765%")
-    elif metric_value == "operating_margin":
-        st.metric("", "45%", "+5%")
-    elif metric_value == "roe":
-        st.metric("", "30%", "+3%")
-    elif metric_value == "free_cash_flow":
-        st.metric("", "$5.20B", "+150%")
-    elif metric_value == "debt_to_equity":
-        st.metric("", "0.5", "-10%")
-    elif metric_value == "pe_ratio":
-        st.metric("", "25", "+5%")
-    else:
-        st.write("")
-
-# Second Column Metrics
-with two:
-    if metric_value == "revenue":
-        st.metric("", "$4.02B", "+768%")
-    elif metric_value == "net_income":
-        st.metric("", "$1.62", "+765%")
-    elif metric_value == "eps":
-        st.metric("", "$16.68B", "+41%")
-    elif metric_value == "operating_margin":
-        st.metric("", "45%", "+5%")
-    elif metric_value == "roe":
-        st.metric("", "30%", "+3%")
-    elif metric_value == "free_cash_flow":
-        st.metric("", "$5.20B", "+150%")
-    elif metric_value == "debt_to_equity":
-        st.metric("", "0.5", "-10%")
-    elif metric_value == "pe_ratio":
-        st.metric("", "25", "+5%")
-    else:
-        st.write("")
-
-# Third Column Metrics
-with three:
-    if metric_value == "revenue":
-        st.metric("", "$1.62", "+765%")
-    elif metric_value == "net_income":
-        st.metric("", "$16.68B", "+41%")
-    elif metric_value == "eps":
-        st.metric("", "$4.02B", "+768%")
-    elif metric_value == "operating_margin":
-        st.metric("", "45%", "+5%")
-    elif metric_value == "roe":
-        st.metric("", "30%", "+3%")
-    elif metric_value == "free_cash_flow":
-        st.metric("", "$5.20B", "+150%")
-    elif metric_value == "debt_to_equity":
-        st.metric("", "0.5", "-10%")
-    elif metric_value == "pe_ratio":
-        st.metric("", "25", "+5%")
-    else:
-        st.write("")
-
-st.markdown("---")
-
-# Create a figure
-fig = go.Figure()
-
-# Define the data for the chart
-x = np.linspace(0, 10, 100)
-y = np.sin(x)
-
-# Add the trace to the figure
-line = fig.add_trace(go.Scatter(x=x, y=y))
-
-# Set the layout of the chart
-fig.update_layout(
-    xaxis_title="X",
-    yaxis_title="Y",
-    height=300,
-    margin=dict(l=20, r=20, t=30, b=20)
-)
-
-# Create a function to update the chart
-def update_chart():
-    global x, y
-    x = np.linspace(0, 10, 100)
-    y = np.sin(x + np.pi * 2 * (time.time() % 1))
-    line.data[0].x = x
-    line.data[0].y = y
+def plot_metric_chart(year_metrics: dict, title: str, currency: str):
+    years = list(year_metrics.keys())
+    values = list(year_metrics.values())
+    fig = go.Figure(data=go.Bar(x=years, y=values, name=title))
+    fig.update_layout(
+        title=f"{title} ({currency})",
+        xaxis_title="Year",
+        yaxis_title=f"Value ({currency})",
+        height=415,
+    )
     return fig
 
 
-k1, k2 = st.columns(2)
+metrics = {
+    "Revenue": "revenue",
+    "Net Income": "net_income",
+    "EPS": "eps",
+    "Operating Margin": "operating_margin",
+    "ROE": "roe",
+    "Free Cash Flow": "free_cash_flow",
+    "Debt to Equity": "debt_to_equity",
+    "P/E Ratio": "pe_ratio"
+}
 
-with k1:
-    st.plotly_chart(update_chart(), use_container_width=True, key="animated_chart")
+# Create metric buttons
+cols = st.columns(4)
+for i, (display_name, metric_key) in enumerate(metrics.items()):
+    if cols[i % 4].button(display_name):
+        st.session_state.clicked_metric = metric_key
 
-    # Footer
+c1, c2 = st.columns(2)
+
+
+with c1: st.markdown(f'<span class="text-red">Financial metric clicked: </span>',unsafe_allow_html=True)
+with c2: st.markdown(f'<span class="text-green-bold">{st.session_state.clicked_metric}</span>',unsafe_allow_html=True)
+
+if st.session_state.clicked_metric:
+    with st.spinner(f'Fetching {st.session_state.clicked_metric} data...'):
+        financial_data = get_financial_data(st.session_state.clicked_metric, company_key)
+    
+    
+    if financial_data:
+        year_metrics = financial_data['year_metrics']
+        currency = financial_data['currency']
+        comment = financial_data['comment']
+        
+        # Convert years to integers and sort
+        sorted_years = sorted(map(int, year_metrics.keys()))
+        
+        # Display latest value and YoY change
+        latest_year = sorted_years[-1]
+        latest_value = year_metrics[str(latest_year)]
+        previous_year = sorted_years[-2] if len(sorted_years) > 1 else latest_year
+        previous_value = year_metrics.get(str(previous_year), latest_value)
+        
+        yoy_change = ((latest_value - previous_value) / previous_value * 100) if previous_value != 0 else 0
+        
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.metric(
+                f"Latest Value ({latest_year})", 
+                f"{currency} {latest_value:,.0f}", 
+                f"{yoy_change:.1f}%"
+            )
+        
+        # Convert year_metrics to use integer keys for plotting
+        int_year_metrics = {int(year): value for year, value in year_metrics.items()}
+        
+        # Plot chart
+        m1, m2 = st.columns(2)
+
+        with m1:
+            st.plotly_chart(
+                plot_metric_chart(int_year_metrics, f'{company_key} {st.session_state.clicked_metric}', currency), 
+                use_container_width=True
+            )
+        
+        with m2:
+            # Display comment with expander
+            with st.expander("View Details"):
+                st.write(financial_data)
+    else:
+        st.error(f"Unable to retrieve data for {st.session_state.clicked_metric}. Please try another metric or check the backend.")
+else:
+    st.info("Please select a metric to view financial data.")
+
+
+me1, me2 = st.columns(2)
+
+with me2:
+    # Unique session ID for each user session
+    session_id = str(uuid.uuid4())
+
+    # Chat history placeholder
+    if "chat_history" not in st.session_state:
+        st.session_state["chat_history"] = []
+
+    # Function to display chat messages
+    def display_chat():
+        for msg, is_user in st.session_state["chat_history"]:
+            if is_user:
+                st.markdown(f'<div class="chat-message user"><p>👤 {msg}</p></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="chat-message bot"><p>🤖 {msg["text"]}</p></div>', unsafe_allow_html=True)
+                
+                # Display source information
+                with st.expander("View Source Information"):
+                    for source in msg["source_documents"]:
+                        st.markdown(f"""
+                        <div class="source-info">
+                            <p><strong>File:</strong> {source['filename']}</p>
+                            <p><strong>Page:</strong> {source['page_number']}</p>
+                            <p><strong>Content:</strong> {source['page_content']}</p>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+    # Dynamic text to reflect selected company
+    st.markdown(
+        f'<div class="top-right-text">'
+        f'<span class="text-green">Currently Analyzing: </span>'
+        f'<span class="text-red">{company_selection}</span>'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+
+
+    # Display chat messages
+    display_chat()
+
+    # Input form - always visible
+    user_input = st.text_input("Ask a financial question:", key="user_input")
+
+    if st.button("Analyze"):
+        if user_input:
+            st.session_state["chat_history"].append((user_input, True))
+            with st.spinner("Preparing Your Response..."):
+                response = requests.post(
+                    "http://127.0.0.1:8000/ask",
+                    json={"question": user_input, "session_id": session_id, "company": company_key}
+                )
+                print(f"Frontend POST request with company: {company_key}")
+                if response.status_code == 200:
+                    answer_data = response.json()["answer"]
+                    st.session_state["chat_history"].append((
+                        {
+                            "text": answer_data["answer"],
+                            "source_documents": answer_data["source_documents"]
+                        }, 
+                        False
+                    ))
+                else:
+                    st.error("Something went wrong. Please try again.")
+            
+            # Clear the input field after submitting
+            st.session_state.user_input
+            st.rerun()
+
+    if user_input:
+        # Clear session button
+        if st.button("Clear Session"):
+            requests.post("http://127.0.0.1:8000/clear_session", json={"session_id": session_id})
+            st.session_state["chat_history"].clear()
+            st.rerun()
+
+    st.write(' ')
+
+with me1:
+    ###   Footer
     st.markdown("---")
     st.write("🌐 Connected to: Equitech Ventures Financial Analysis Bot")
     st.markdown(
@@ -422,6 +400,8 @@ with k1:
         f'<span class="text-green-bold">Powered by Equitech Ventures | © 2024</span>',
         unsafe_allow_html=True
         )
-    
-with k2:
-    components.html(chat_html, height=600, scrolling=True)
+
+
+
+
+
